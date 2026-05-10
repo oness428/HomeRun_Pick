@@ -2,16 +2,16 @@ import { useState, useEffect, useCallback } from "react";
 
 // ── 팀 데이터 ─────────────────────────────────────────────
 const TEAMS = {
-  KIA:  { name: "KIA 타이거즈",  short: "KIA",  color: "#C8102E", bg: "#FFF0F0", emoji: "🐯" },
-  SS:   { name: "삼성 라이온즈",  short: "삼성",  color: "#1428A0", bg: "#F0F0FF", emoji: "🦁" },
-  LG:   { name: "LG 트윈스",     short: "LG",   color: "#C40D2E", bg: "#FFF0F0", emoji: "⚡" },
-  DB:   { name: "두산 베어스",    short: "두산",  color: "#131230", bg: "#F0F0F5", emoji: "🐻" },
-  KT:   { name: "KT 위즈",       short: "KT",   color: "#000000", bg: "#F5F5F5", emoji: "🧙" },
-  SSG:  { name: "SSG 랜더스",    short: "SSG",  color: "#CE0E2D", bg: "#FFF0F0", emoji: "🚀" },
-  LOT:  { name: "롯데 자이언츠",  short: "롯데",  color: "#002561", bg: "#F0F0FF", emoji: "💪" },
-  HH:   { name: "한화 이글스",    short: "한화",  color: "#F0501B", bg: "#FFF4F0", emoji: "🦅" },
-  NC:   { name: "NC 다이노스",    short: "NC",   color: "#1D5B9E", bg: "#F0F5FF", emoji: "🦕" },
-  KIW:  { name: "키움 히어로즈",  short: "키움",  color: "#820024", bg: "#FFF0F3", emoji: "🏹" },
+  KIA:  { name: "KIA 타이거즈",  short: "KIA",  color: "#C8102E", bg: "#FFF0F0", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_HT.png" },
+  SS:   { name: "삼성 라이온즈",  short: "삼성",  color: "#1428A0", bg: "#F0F0FF", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_SS.png" },
+  LG:   { name: "LG 트윈스",     short: "LG",   color: "#C40D2E", bg: "#FFF0F0", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_LG.png" },
+  DB:   { name: "두산 베어스",    short: "두산",  color: "#131230", bg: "#F0F0F5", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_OB.png" },
+  KT:   { name: "KT 위즈",       short: "KT",   color: "#000000", bg: "#F5F5F5", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_KT.png" },
+  SSG:  { name: "SSG 랜더스",    short: "SSG",  color: "#CE0E2D", bg: "#FFF0F0", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_SK.png" },
+  LOT:  { name: "롯데 자이언츠",  short: "롯데",  color: "#002561", bg: "#F0F0FF", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_LT.png" },
+  HH:   { name: "한화 이글스",    short: "한화",  color: "#F0501B", bg: "#FFF4F0", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_HH.png" },
+  NC:   { name: "NC 다이노스",    short: "NC",   color: "#1D5B9E", bg: "#F0F5FF", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_NC.png" },
+  KIW:  { name: "키움 히어로즈",  short: "키움",  color: "#820024", bg: "#FFF0F3", logo: "https://6ptotvmi5753.edge.naverncp.com/KBO_IMAGE/emblem/regular/fixed/emblem_WO.png" },
 };
 
 // ── 게임 데이터 ───────────────────────────────────────────
@@ -51,7 +51,23 @@ const INITIAL_GAMES = [
   },
 ];
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api/games/today";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/game-schedule/date";
+
+// kbo-scraper의 전체 팀 이름을 홈런픽의 고유 ID로 변환합니다.
+const getTeamId = (fullName) => {
+  if (!fullName) return "KIA";
+  if (fullName.includes("KIA") || fullName.includes("기아")) return "KIA";
+  if (fullName.includes("삼성")) return "SS";
+  if (fullName.includes("LG")) return "LG";
+  if (fullName.includes("두산")) return "DB";
+  if (fullName.includes("KT") || fullName.includes("kt")) return "KT";
+  if (fullName.includes("SSG")) return "SSG";
+  if (fullName.includes("롯데")) return "LOT";
+  if (fullName.includes("한화")) return "HH";
+  if (fullName.includes("NC") || fullName.includes("nc")) return "NC";
+  if (fullName.includes("키움")) return "KIW";
+  return "KIA"; // fallback
+};
 
 // ── 히스토리 데이터 ───────────────────────────────────────
 const HISTORY = [
@@ -108,17 +124,49 @@ export default function App() {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
+        // 오늘 날짜를 YYYY-MM-DD 형태로 가져오기
+        const todayStr = new Date().toLocaleDateString('ko-KR', {
+          year: 'numeric', month: '2-digit', day: '2-digit'
+        }).replace(/\. /g, '-').replace('.', '');
         
-        // 사용자가 선택한 예측(Pick)은 유지하면서 점수와 상태만 업데이트
-        setGames(prev => {
-          if (prev.length === 0) return data;
-          return data.map(newGame => {
-            const oldGame = prev.find(g => g.id === newGame.id);
-            return oldGame ? { ...newGame, pick: oldGame.pick } : newGame;
+        const res = await fetch(`${API_URL}/${todayStr}`);
+        const responseData = await res.json();
+        
+        if (responseData.code === "OK" && responseData.data) {
+          const mappedData = responseData.data.map(item => {
+            let status = "upcoming";
+            if (item.gameStatus.includes("종료")) status = "ended";
+            else if (item.gameStatus.includes("취소")) status = "canceled";
+            else if (item.gameStatus !== "경기 전") status = "live";
+
+            // 시간 포맷 정리 (18:30:00 -> 18:30)
+            const timeStr = item.time ? item.time.substring(0, 5) : "";
+
+            return {
+              id: item.gameKey,
+              home: getTeamId(item.homeTeam),
+              away: getTeamId(item.awayTeam),
+              time: timeStr,
+              stadium: item.stadium,
+              status: status,
+              pick: null,
+              result: null,
+              homeOdds: 1.80, // 배당률은 임시 고정
+              awayOdds: 1.90,
+              homeScore: item.homeScore || 0,
+              awayScore: item.awayScore || 0,
+            };
           });
-        });
+
+          // 사용자가 선택한 예측(Pick)은 유지하면서 점수와 상태만 업데이트
+          setGames(prev => {
+            if (prev.length === 0 || prev[0].id === 1) return mappedData; // 가짜 데이터면 교체
+            return mappedData.map(newGame => {
+              const oldGame = prev.find(g => g.id === newGame.id);
+              return oldGame ? { ...newGame, pick: oldGame.pick } : newGame;
+            });
+          });
+        }
       } catch (e) {
         console.error("서버에서 데이터를 가져오지 못했습니다. 가짜 데이터를 보여줍니다.", e);
         // 서버가 꺼져있을 때 빈 화면이 나오지 않도록 가짜 데이터를 넣어줍니다.
@@ -396,7 +444,7 @@ function TeamButton({ team, side, game, picked, won, isEnded, anim, onPick, odds
                   : wrong   ? "#FEE2E2"
                   : active  ? `${team.color}15`
                   : isEnded && won ? "#F0F9FF"
-                  : "#F9FAFB",
+                  : "rgba(255,255,255,0.4)",
         border: `1.5px solid ${
           correct   ? "#86EFAC"
           : wrong   ? "#FCA5A5"
@@ -409,7 +457,19 @@ function TeamButton({ team, side, game, picked, won, isEnded, anim, onPick, odds
         textAlign: "center",
       }}
     >
-      <div style={{ fontSize: 24, marginBottom: 2 }}>{team.emoji}</div>
+      <div style={{ width: 56, height: 56, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", margin: "0 auto" }}>
+        <img 
+          src={team.logo} 
+          alt={team.name} 
+          style={{ 
+            maxWidth: "100%", 
+            maxHeight: "100%", 
+            objectFit: "contain", 
+            background: "transparent",
+            transform: team.short === "두산" ? "scale(1.15)" : "none" 
+          }} 
+        />
+      </div>
       <div style={{ fontSize: 11, fontWeight: 700, color: C.text, marginBottom: 1 }}>
         {team.short}
       </div>
@@ -518,7 +578,9 @@ function StatsTab({ totalWins, total, streak }) {
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 18 }}>{pickedTeam.emoji}</span>
+                <div style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <img src={pickedTeam.logo} alt={pickedTeam.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+                </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
                     {away.short} vs {home.short}
