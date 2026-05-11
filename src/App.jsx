@@ -272,23 +272,23 @@ export default function App() {
           }));
           setYesterdayGames(mappedData);
         } else {
-          // 백엔드 없을 때 5/10 경기 결과 fallback
+          // 백엔드 없을 때 5/10(일) 실제 경기 결과 fallback
           setYesterdayGames([
-            { id: "y1", home: "KIA", away: "NC",  status: "ended", homeScore: 5, awayScore: 3, time: "18:30", stadium: "광주" },
-            { id: "y2", home: "DB",  away: "SSG", status: "ended", homeScore: 2, awayScore: 4, time: "18:30", stadium: "잠실" },
-            { id: "y3", home: "KIW", away: "LG",  status: "ended", homeScore: 1, awayScore: 7, time: "18:30", stadium: "고척" },
-            { id: "y4", home: "SS",  away: "HH",  status: "ended", homeScore: 6, awayScore: 3, time: "18:30", stadium: "대구" },
-            { id: "y5", home: "KT",  away: "LOT", status: "ended", homeScore: 8, awayScore: 2, time: "18:30", stadium: "수원" },
+            { id: "y1", home: "DB",  away: "SSG", status: "ended", homeScore: 3,  awayScore: 1, time: "14:00", stadium: "잠실" },
+            { id: "y2", home: "LOT", away: "KIA", status: "ended", homeScore: 7,  awayScore: 3, time: "14:00", stadium: "부산" },
+            { id: "y3", home: "NC",  away: "SS",  status: "ended", homeScore: 1,  awayScore: 11, time: "14:00", stadium: "창원" },
+            { id: "y4", home: "KIW", away: "KT",  status: "ended", homeScore: 5,  awayScore: 1, time: "14:00", stadium: "고척" },
+            { id: "y5", home: "HH",  away: "LG",  status: "ended", homeScore: 9,  awayScore: 3, time: "14:00", stadium: "대전" },
           ]);
         }
       } catch (e) {
         console.error("어제 경기를 가져오지 못했습니다. 기본 데이터를 표시합니다.", e);
         setYesterdayGames([
-          { id: "y1", home: "KIA", away: "NC",  status: "ended", homeScore: 5, awayScore: 3, time: "18:30", stadium: "광주" },
-          { id: "y2", home: "DB",  away: "SSG", status: "ended", homeScore: 2, awayScore: 4, time: "18:30", stadium: "잠실" },
-          { id: "y3", home: "KIW", away: "LG",  status: "ended", homeScore: 1, awayScore: 7, time: "18:30", stadium: "고척" },
-          { id: "y4", home: "SS",  away: "HH",  status: "ended", homeScore: 6, awayScore: 3, time: "18:30", stadium: "대구" },
-          { id: "y5", home: "KT",  away: "LOT", status: "ended", homeScore: 8, awayScore: 2, time: "18:30", stadium: "수원" },
+          { id: "y1", home: "DB",  away: "SSG", status: "ended", homeScore: 3,  awayScore: 1, time: "14:00", stadium: "잠실" },
+          { id: "y2", home: "LOT", away: "KIA", status: "ended", homeScore: 7,  awayScore: 3, time: "14:00", stadium: "부산" },
+          { id: "y3", home: "NC",  away: "SS",  status: "ended", homeScore: 1,  awayScore: 11, time: "14:00", stadium: "창원" },
+          { id: "y4", home: "KIW", away: "KT",  status: "ended", homeScore: 5,  awayScore: 1, time: "14:00", stadium: "고척" },
+          { id: "y5", home: "HH",  away: "LG",  status: "ended", homeScore: 9,  awayScore: 3, time: "14:00", stadium: "대전" },
         ]);
       }
     };
