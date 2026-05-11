@@ -41,18 +41,20 @@ export default async function handler(req) {
       const wins = parseInt(get("win")) || 0;
       const losses = parseInt(get("lose")) || 0;
       const draws = parseInt(get("drawn")) || 0;
-      const totalGames = wins + losses + draws;
-      const winRate = totalGames > 0 ? wins / (wins + losses) : 0;
+      const gamesPlayed = wins + losses + draws;
+      const winRate = (wins + losses) > 0 ? wins / (wins + losses) : 0;
 
       teams.push({
         rank: parseInt(get("rank")) || teams.length + 1,
         teamName: get("teamName"),
+        gamesPlayed,
         wins,
         draws,
         losses,
         winRate: parseFloat(winRate.toFixed(3)),
-        gamesBack: get("gb") || "-",
+        gamesBehind: parseFloat(get("gb")) || 0,
         recent10Games: get("last10") || "",
+        streak: get("streak") || "",
       });
     }
 

@@ -426,37 +426,59 @@ function LeagueTab({ records }) {
           <span style={{ fontSize: 11, opacity: 0.8 }}>실시간 업데이트</span>
         </div>
         
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr style={{ background: "#F9FAFB", borderBottom: `1px solid ${C.border}` }}>
-              <th style={{ padding: "12px 8px", textAlign: "center", width: 40, color: C.sub }}>순위</th>
-              <th style={{ padding: "12px 8px", textAlign: "left", color: C.sub }}>팀명</th>
-              <th style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>승</th>
-              <th style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>무</th>
-              <th style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>패</th>
-              <th style={{ padding: "12px 8px", textAlign: "center", color: C.sub }}>승률</th>
+              <th style={{ padding: "10px 6px", textAlign: "center", width: 32, color: C.sub }}>순위</th>
+              <th style={{ padding: "10px 6px", textAlign: "left", color: C.sub }}>팀</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>경기</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>승</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>무</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>패</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>승률</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>게임차</th>
+              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>연속</th>
             </tr>
           </thead>
           <tbody>
             {records.map((r, idx) => {
               const teamId = getTeamId(r.teamName);
               const team = TEAMS[teamId];
+              const isTop3 = idx < 3;
+              const streakStr = r.streak || "-";
+              const streakIsWin = streakStr.startsWith("W") || streakStr.includes("승");
               return (
-                <tr key={r.teamName} style={{ borderBottom: idx < records.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                  <td style={{ padding: "14px 8px", textAlign: "center", fontWeight: idx < 3 ? 800 : 500, color: idx < 3 ? C.navy : C.text }}>
+                <tr key={r.teamName} style={{
+                  borderBottom: idx < records.length - 1 ? `1px solid ${C.border}` : "none",
+                  background: isTop3 ? "rgba(14,30,69,0.02)" : "transparent",
+                }}>
+                  <td style={{ padding: "12px 6px", textAlign: "center", fontWeight: isTop3 ? 800 : 500, color: isTop3 ? C.navy : C.sub }}>
                     {r.rank}
                   </td>
-                  <td style={{ padding: "14px 8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <img src={team?.logo} style={{ width: 24, height: 24, objectFit: "contain" }} alt="" />
-                      <span style={{ fontWeight: 600 }}>{team?.short || r.teamName}</span>
+                  <td style={{ padding: "12px 6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <img src={team?.logo} style={{ width: 22, height: 22, objectFit: "contain" }} alt="" />
+                      <span style={{ fontWeight: 700, fontSize: 12 }}>{team?.short || r.teamName}</span>
                     </div>
                   </td>
-                  <td style={{ padding: "14px 4px", textAlign: "center", fontWeight: 700 }}>{r.wins}</td>
-                  <td style={{ padding: "14px 4px", textAlign: "center", color: C.sub }}>{r.draws}</td>
-                  <td style={{ padding: "14px 4px", textAlign: "center" }}>{r.losses}</td>
-                  <td style={{ padding: "14px 8px", textAlign: "center", fontWeight: 600, color: C.navy }}>
-                    {r.winRate.toFixed(3).substring(1)}
+                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>{r.gamesPlayed || (r.wins + r.losses + r.draws)}</td>
+                  <td style={{ padding: "12px 4px", textAlign: "center", fontWeight: 700, color: C.text }}>{r.wins}</td>
+                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>{r.draws}</td>
+                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.text }}>{r.losses}</td>
+                  <td style={{ padding: "12px 4px", textAlign: "center", fontWeight: 600, color: C.navy }}>
+                    {typeof r.winRate === "number" ? r.winRate.toFixed(3).substring(1) : r.winRate}
+                  </td>
+                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>
+                    {r.gamesBehind === 0 ? "-" : r.gamesBehind ?? "-"}
+                  </td>
+                  <td style={{ padding: "12px 4px", textAlign: "center" }}>
+                    {streakStr !== "-" ? (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                        background: streakIsWin ? "#DCFCE7" : "#FEE2E2",
+                        color: streakIsWin ? "#16A34A" : "#DC2626",
+                      }}>{streakStr}</span>
+                    ) : <span style={{ color: C.sub }}>-</span>}
                   </td>
                 </tr>
               );
