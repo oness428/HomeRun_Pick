@@ -139,16 +139,16 @@ export default function App() {
   const [isOffTime, setIsOffTime] = useState(false);
   const [userRankings, setUserRankings] = useState(INITIAL_RANKING);
   const [teamRecords, setTeamRecords] = useState([
-    { rank: 1, teamName: "KT", wins: 12, draws: 0, losses: 5, winRate: 0.706, recent10Games: "8승 2패" },
-    { rank: 2, teamName: "LG", wins: 11, draws: 1, losses: 6, winRate: 0.647, recent10Games: "7승 3패" },
-    { rank: 3, teamName: "삼성", wins: 10, draws: 0, losses: 7, winRate: 0.588, recent10Games: "6승 4패" },
-    { rank: 4, teamName: "SSG", wins: 10, draws: 0, losses: 8, winRate: 0.556, recent10Games: "5승 5패" },
-    { rank: 5, teamName: "두산", wins: 9, draws: 1, losses: 8, winRate: 0.529, recent10Games: "5승 5패" },
-    { rank: 6, teamName: "KIA", wins: 8, draws: 0, losses: 9, winRate: 0.471, recent10Games: "4승 6패" },
-    { rank: 7, teamName: "한화", wins: 7, draws: 0, losses: 10, winRate: 0.412, recent10Games: "4승 6패" },
-    { rank: 8, teamName: "롯데", wins: 7, draws: 0, losses: 11, winRate: 0.389, recent10Games: "3승 7패" },
-    { rank: 9, teamName: "NC", wins: 6, draws: 0, losses: 12, winRate: 0.333, recent10Games: "3승 7패" },
-    { rank: 10, teamName: "키움", wins: 5, draws: 0, losses: 13, winRate: 0.278, recent10Games: "2승 8패" },
+    { rank: 1,  teamName: "KT",  wins: 23, draws: 1, losses: 12, winRate: 0.657, gamesPlayed: 36 },
+    { rank: 2,  teamName: "LG",  wins: 22, draws: 0, losses: 14, winRate: 0.611, gamesPlayed: 36 },
+    { rank: 3,  teamName: "삼성", wins: 21, draws: 1, losses: 14, winRate: 0.600, gamesPlayed: 36 },
+    { rank: 4,  teamName: "SSG", wins: 19, draws: 1, losses: 16, winRate: 0.543, gamesPlayed: 36 },
+    { rank: 5,  teamName: "KIA", wins: 17, draws: 1, losses: 19, winRate: 0.472, gamesPlayed: 37 },
+    { rank: 5,  teamName: "두산", wins: 17, draws: 1, losses: 19, winRate: 0.472, gamesPlayed: 37 },
+    { rank: 7,  teamName: "한화", wins: 16, draws: 0, losses: 20, winRate: 0.444, gamesPlayed: 36 },
+    { rank: 8,  teamName: "NC",  wins: 15, draws: 1, losses: 20, winRate: 0.429, gamesPlayed: 36 },
+    { rank: 9,  teamName: "롯데", wins: 14, draws: 1, losses: 20, winRate: 0.412, gamesPlayed: 35 },
+    { rank: 10, teamName: "키움", wins: 13, draws: 1, losses: 23, winRate: 0.361, gamesPlayed: 37 },
   ]);
 
   const [yesterdayGames, setYesterdayGames] = useState([]);
@@ -426,18 +426,16 @@ function LeagueTab({ records }) {
           <span style={{ fontSize: 11, opacity: 0.8 }}>실시간 업데이트</span>
         </div>
         
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ background: "#F9FAFB", borderBottom: `1px solid ${C.border}` }}>
               <th style={{ padding: "10px 6px", textAlign: "center", width: 32, color: C.sub }}>순위</th>
-              <th style={{ padding: "10px 6px", textAlign: "left", color: C.sub }}>팀</th>
+              <th style={{ padding: "10px 8px", textAlign: "left", color: C.sub }}>팀</th>
               <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>경기</th>
               <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>승</th>
               <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>무</th>
               <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>패</th>
-              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>승률</th>
-              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>게임차</th>
-              <th style={{ padding: "10px 4px", textAlign: "center", color: C.sub }}>연속</th>
+              <th style={{ padding: "10px 8px", textAlign: "center", color: C.sub }}>승률</th>
             </tr>
           </thead>
           <tbody>
@@ -445,40 +443,26 @@ function LeagueTab({ records }) {
               const teamId = getTeamId(r.teamName);
               const team = TEAMS[teamId];
               const isTop3 = idx < 3;
-              const streakStr = r.streak || "-";
-              const streakIsWin = streakStr.startsWith("W") || streakStr.includes("승");
               return (
                 <tr key={r.teamName} style={{
                   borderBottom: idx < records.length - 1 ? `1px solid ${C.border}` : "none",
                   background: isTop3 ? "rgba(14,30,69,0.02)" : "transparent",
                 }}>
-                  <td style={{ padding: "12px 6px", textAlign: "center", fontWeight: isTop3 ? 800 : 500, color: isTop3 ? C.navy : C.sub }}>
+                  <td style={{ padding: "13px 6px", textAlign: "center", fontWeight: isTop3 ? 800 : 500, color: isTop3 ? C.navy : C.sub }}>
                     {r.rank}
                   </td>
-                  <td style={{ padding: "12px 6px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <img src={team?.logo} style={{ width: 22, height: 22, objectFit: "contain" }} alt="" />
-                      <span style={{ fontWeight: 700, fontSize: 12 }}>{team?.short || r.teamName}</span>
+                  <td style={{ padding: "13px 8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <img src={team?.logo} style={{ width: 24, height: 24, objectFit: "contain" }} alt="" />
+                      <span style={{ fontWeight: 700 }}>{team?.short || r.teamName}</span>
                     </div>
                   </td>
-                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>{r.gamesPlayed || (r.wins + r.losses + r.draws)}</td>
-                  <td style={{ padding: "12px 4px", textAlign: "center", fontWeight: 700, color: C.text }}>{r.wins}</td>
-                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>{r.draws}</td>
-                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.text }}>{r.losses}</td>
-                  <td style={{ padding: "12px 4px", textAlign: "center", fontWeight: 600, color: C.navy }}>
+                  <td style={{ padding: "13px 4px", textAlign: "center", color: C.sub }}>{r.gamesPlayed || (r.wins + r.losses + r.draws)}</td>
+                  <td style={{ padding: "13px 4px", textAlign: "center", fontWeight: 700, color: C.text }}>{r.wins}</td>
+                  <td style={{ padding: "13px 4px", textAlign: "center", color: C.sub }}>{r.draws}</td>
+                  <td style={{ padding: "13px 4px", textAlign: "center", color: C.text }}>{r.losses}</td>
+                  <td style={{ padding: "13px 8px", textAlign: "center", fontWeight: 600, color: C.navy }}>
                     {typeof r.winRate === "number" ? r.winRate.toFixed(3).substring(1) : r.winRate}
-                  </td>
-                  <td style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>
-                    {r.gamesBehind === 0 ? "-" : r.gamesBehind ?? "-"}
-                  </td>
-                  <td style={{ padding: "12px 4px", textAlign: "center" }}>
-                    {streakStr !== "-" ? (
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
-                        background: streakIsWin ? "#DCFCE7" : "#FEE2E2",
-                        color: streakIsWin ? "#16A34A" : "#DC2626",
-                      }}>{streakStr}</span>
-                    ) : <span style={{ color: C.sub }}>-</span>}
                   </td>
                 </tr>
               );
