@@ -51,9 +51,10 @@ const INITIAL_GAMES = [
   },
 ];
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-const GAME_SCHEDULE_API_URL = `${API_BASE_URL}/game-schedule/date`;
-const TEAM_RECORD_API_URL = `${API_BASE_URL}/team-record`;
+// Vercel Serverless API (kbo-scraper 백엔드 불필요)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+const GAME_SCHEDULE_API_URL = `${API_BASE_URL}/api/games`;
+const TEAM_RECORD_API_URL = `${API_BASE_URL}/api/team-record`;
 
 // kbo-scraper의 전체 팀 이름을 홈런픽의 고유 ID로 변환합니다.
 const getTeamId = (fullName) => {
@@ -179,31 +180,8 @@ export default function App() {
         const res = await fetch(`${GAME_SCHEDULE_API_URL}/${todayStr}`);
         const responseData = await res.json();
         
-        if (responseData.code === "OK" && responseData.data) {
-          const mappedData = responseData.data.map(item => {
-            let status = "upcoming";
-            if (item.gameStatus.includes("종료")) status = "ended";
-            else if (item.gameStatus.includes("취소")) status = "canceled";
-            else if (item.gameStatus !== "경기 전") status = "live";
-
-            // 시간 포맷 정리 (18:30:00 -> 18:30)
-            const timeStr = item.time ? item.time.substring(0, 5) : "";
-
-            return {
-              id: item.gameKey,
-              home: getTeamId(item.homeTeam),
-              away: getTeamId(item.awayTeam),
-              time: timeStr,
-              stadium: item.stadium,
-              status: status,
-              pick: null,
-              result: null,
-              homeOdds: 1.80, // 배당률은 임시 고정
-              awayOdds: 1.90,
-              homeScore: item.homeScore || 0,
-              awayScore: item.awayScore || 0,
-            };
-          });
+        if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
+          const mappedData = responseData.data;  // 이미 매핑 완료된 형태
 
           // 사용자가 선택한 예측(Pick)은 유지하면서 점수와 상태만 업데이트
           setGames(prev => {
@@ -241,15 +219,18 @@ export default function App() {
 
     const fetchTeamRecords = async () => {
       try {
-        const year = new Date().getFullYear();
-        const res = await fetch(`${TEAM_RECORD_API_URL}/${year}`);
-        const data = await res.json();
-        if (data) setTeamRecords(data);
+        const res = await fetch(`${API_BASE_URL}/api/standings`, { signal: AbortSignal.timeout(5000) });
+        const responseData = await res.json();
+        if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
+          setTeamRecords(responseData.data);
+        }
+        // 실패 시 기존 hardcoded 초기값 유지
       } catch (e) {
         console.error("팀 순위 데이터를 가져오지 못했습니다.", e);
       }
     };
     fetchTeamRecords();
+    const standingsTimer = setInterval(fetchTeamRecords, 300000); // 5분마다 갱신
 
     const fetchYesterday = async () => {
       try {
@@ -257,20 +238,10 @@ export default function App() {
         const yStr = yesterday.toLocaleDateString('ko-KR', {
           year: 'numeric', month: '2-digit', day: '2-digit'
         }).replace(/\. /g, '-').replace('.', '');
-        const res = await fetch(`${GAME_SCHEDULE_API_URL}/${yStr}`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(`${GAME_SCHEDULE_API_URL}/${yStr}`, { signal: AbortSignal.timeout(5000) });
         const responseData = await res.json();
         if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
-          const mappedData = responseData.data.map(item => ({
-            id: item.gameKey,
-            home: getTeamId(item.homeTeam),
-            away: getTeamId(item.awayTeam),
-            time: item.time ? item.time.substring(0, 5) : "",
-            stadium: item.stadium,
-            status: "ended",
-            homeScore: item.homeScore || 0,
-            awayScore: item.awayScore || 0,
-          }));
-          setYesterdayGames(mappedData);
+          setYesterdayGames(responseData.data);
         } else {
           // 백엔드 없을 때 5/10(일) 실제 경기 결과 fallback
           setYesterdayGames([
@@ -294,7 +265,7 @@ export default function App() {
     };
     fetchYesterday();
 
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); clearInterval(standingsTimer); };
   }, []);
 
   const showToast = useCallback((msg, type = "success") => {
