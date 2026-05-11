@@ -72,9 +72,64 @@ const getTeamId = (fullName) => {
   return "KIA"; // fallback
 };
 
-// ── 히스토리 데이터 ───────────────────────────────────────
-// 실제 운영에서는 로컬스토리지나 DB에서 불러옵니다.
-const HISTORY = [];
+// ── 로컬스토리지 헬퍼 ────────────────────────────────────
+const LS_PICKS_KEY  = (d) => `hrpick_picks_${d}`;
+const LS_HISTORY_KEY = "hrpick_history";
+const LS_USER_KEY   = "hrpick_userid";
+
+const getTodayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
+
+const getUserId = () => {
+  let id = localStorage.getItem(LS_USER_KEY);
+  if (!id) {
+    id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(LS_USER_KEY, id);
+  }
+  return id;
+};
+
+const savePicks = (games) => {
+  const picks = {};
+  games.forEach(g => { if (g.pick) picks[g.id] = g.pick; });
+  localStorage.setItem(LS_PICKS_KEY(getTodayKey()), JSON.stringify(picks));
+};
+
+const loadTodayPicks = () => {
+  try { return JSON.parse(localStorage.getItem(LS_PICKS_KEY(getTodayKey())) || "{}"); }
+  catch { return {}; }
+};
+
+const saveHistory = (game) => {
+  try {
+    const history = JSON.parse(localStorage.getItem(LS_HISTORY_KEY) || "[]");
+    const exists = history.find(h => h.gameId === game.id && h.date === getTodayKey());
+    if (!exists && game.pick && game.result) {
+      history.unshift({
+        gameId: game.id,
+        date: getTodayKey(),
+        home: game.home,
+        away: game.away,
+        pick: game.pick,
+        result: game.result,
+        pickedTeam: game.pick === "home" ? game.home : game.away,
+        win: game.pick === game.result,
+        homeScore: game.homeScore,
+        awayScore: game.awayScore,
+      });
+      localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(history.slice(0, 200)));
+      return true;
+    }
+  } catch(e) { console.error(e); }
+  return false;
+};
+
+const loadHistory = () => {
+  try { return JSON.parse(localStorage.getItem(LS_HISTORY_KEY) || "[]"); }
+  catch { return []; }
+};
 
 // 랭킹 데이터는 나중에 백엔드에서 가져오도록 변경 (현재는 비워둠)
 const INITIAL_RANKING = [];
@@ -138,6 +193,7 @@ export default function App() {
   const [animPick, setAnimPick] = useState(null);
   const [isOffTime, setIsOffTime] = useState(false);
   const [userRankings, setUserRankings] = useState(INITIAL_RANKING);
+  const [history, setHistory] = useState(() => loadHistory());
   const [teamRecords, setTeamRecords] = useState([
     { rank: 1,  teamName: "KT",  wins: 23, draws: 1, losses: 12, winRate: 0.657, gamesPlayed: 36 },
     { rank: 2,  teamName: "LG",  wins: 22, draws: 0, losses: 14, winRate: 0.611, gamesPlayed: 36 },
@@ -172,24 +228,41 @@ export default function App() {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        // 오늘 날짜를 YYYY-MM-DD 형태로 가져오기
-        const todayStr = new Date().toLocaleDateString('ko-KR', {
-          year: 'numeric', month: '2-digit', day: '2-digit'
-        }).replace(/\. /g, '-').replace('.', '');
+        const d = new Date();
+        const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
         
-        const res = await fetch(`${GAME_SCHEDULE_API_URL}/${todayStr}`);
+        const res = await fetch(`${GAME_SCHEDULE_API_URL}/${todayStr}`, { signal: AbortSignal.timeout(5000) });
         const responseData = await res.json();
         
         if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
-          const mappedData = responseData.data;  // 이미 매핑 완료된 형태
+          const mappedData = responseData.data;
+          const savedPicks = loadTodayPicks();
 
-          // 사용자가 선택한 예측(Pick)은 유지하면서 점수와 상태만 업데이트
           setGames(prev => {
-            if (prev.length === 0 || prev[0].id === 1) return mappedData; // 가짜 데이터면 교체
-            return mappedData.map(newGame => {
+            if (prev.length === 0 || prev[0].id === 1) {
+              // 최초 로딩 시 저장된 pick 복원
+              return mappedData.map(g => ({ ...g, pick: savedPicks[g.id] || null }));
+            }
+            
+            let isChanged = false;
+            const updated = mappedData.map(newGame => {
               const oldGame = prev.find(g => g.id === newGame.id);
-              return oldGame ? { ...newGame, pick: oldGame.pick } : newGame;
+              if (!oldGame) {
+                isChanged = true;
+                return { ...newGame, pick: savedPicks[newGame.id] || null };
+              }
+              // 상태나 점수가 달라졌는지 확인
+              if (
+                oldGame.status !== newGame.status ||
+                oldGame.homeScore !== newGame.homeScore ||
+                oldGame.awayScore !== newGame.awayScore
+              ) {
+                isChanged = true;
+              }
+              return { ...newGame, pick: oldGame.pick };
             });
+            
+            return isChanged ? updated : prev;
           });
         }
       } catch (e) {
@@ -198,9 +271,11 @@ export default function App() {
         setGames(prev => {
           if (prev.length === 0) return INITIAL_GAMES;
           // 가상으로 실시간 점수 올리기 (프론트 단독 작동용)
-          return prev.map(g => {
+          let isChanged = false;
+          const updated = prev.map(g => {
             if (g.status !== "live") return g;
             if (Math.random() < 0.1) {
+              isChanged = true;
               const isHomeScore = Math.random() > 0.5;
               return {
                 ...g,
@@ -210,6 +285,7 @@ export default function App() {
             }
             return g;
           });
+          return isChanged ? updated : prev;
         });
       }
     };
@@ -222,7 +298,11 @@ export default function App() {
         const res = await fetch(`${API_BASE_URL}/api/standings`, { signal: AbortSignal.timeout(5000) });
         const responseData = await res.json();
         if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
-          setTeamRecords(responseData.data);
+          setTeamRecords(prev => {
+            // 단순 비교 최적화 (순위표 전체가 동일한지 문자열화하여 확인)
+            if (JSON.stringify(prev) === JSON.stringify(responseData.data)) return prev;
+            return responseData.data;
+          });
         }
         // 실패 시 기존 hardcoded 초기값 유지
       } catch (e) {
@@ -235,9 +315,7 @@ export default function App() {
     const fetchYesterday = async () => {
       try {
         const yesterday = new Date(Date.now() - 86400000);
-        const yStr = yesterday.toLocaleDateString('ko-KR', {
-          year: 'numeric', month: '2-digit', day: '2-digit'
-        }).replace(/\. /g, '-').replace('.', '');
+        const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,"0")}-${String(yesterday.getDate()).padStart(2,"0")}`;
         const res = await fetch(`${GAME_SCHEDULE_API_URL}/${yStr}`, { signal: AbortSignal.timeout(5000) });
         const responseData = await res.json();
         if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
@@ -282,24 +360,45 @@ export default function App() {
       return;
     }
 
-    setGames(prev => prev.map(g => {
-      if (g.id !== gameId) return g;
-      if (g.pick === side) return { ...g, pick: null };
-      return { ...g, pick: side };
-    }));
+    setGames(prev => {
+      const updated = prev.map(g => {
+        if (g.id !== gameId) return g;
+        if (g.pick === side) return { ...g, pick: null };
+        return { ...g, pick: side };
+      });
+      savePicks(updated);
+      return updated;
+    });
     setAnimPick(`${gameId}-${side}`);
     setTimeout(() => setAnimPick(null), 500);
     const t = TEAMS[side === "home" ? g.home : g.away];
     showToast(`${t.short} 승리 예측!`);
   }, [games, showToast]);
 
-  // stats
-  // 실제 픽망 운영: pick은 사용자가 직접 선택한 종료 경기만 카운트
-  const pickedGames = games.filter(g => g.pick && g.status === "ended");
-  const wins = pickedGames.filter(g => g.pick === g.result).length;
-  const total = pickedGames.length;
-  const totalWins = wins;
-  const streak = 0; // 향후 DB/로컬스토리지 기반 연속 적중 계산
+  // 종료된 경기에 pick이 있으면 히스토리에 저장
+  useEffect(() => {
+    let updated = false;
+    games.forEach(g => {
+      if (g.status === "ended" && g.pick && g.result) {
+        if (saveHistory(g)) updated = true;
+      }
+    });
+    // 히스토리 상태 동기화 (업데이트 된 경우만)
+    if (updated) {
+      setHistory(loadHistory());
+    }
+  }, [games]);
+
+  // stats - 로컬스토리지 히스토리 기반
+  const totalHistory = history;
+  const totalWins = totalHistory.filter(h => h.win).length;
+  const total = totalHistory.length;
+
+  let streak = 0;
+  for (const h of totalHistory) {
+    if (h.win) streak++;
+    else break;
+  }
 
   return (
     <div style={{
@@ -317,7 +416,7 @@ export default function App() {
           isOffTime ? <OffTimePopup yesterdayGames={yesterdayGames} /> : <HomeTab games={games} yesterdayGames={yesterdayGames} onPick={handlePick} animPick={animPick} />
         )}
         {tab === "league"  && <LeagueTab records={teamRecords} />}
-        {tab === "stats"   && <StatsTab totalWins={totalWins} total={total} streak={streak} pickedGames={pickedGames} />}
+        {tab === "stats"   && <StatsTab totalWins={totalWins} total={total} streak={streak} history={totalHistory} />}
         {tab === "ranking" && <RankingTab rankings={userRankings} />}
       </div>
 
@@ -558,15 +657,20 @@ function GameCard({ game, onPick, animPick }) {
   const home = TEAMS[game.home];
   const away = TEAMS[game.away];
   const isEnded = game.status === "ended";
-  const homeWon = game.result === "home";
-  const awayWon = game.result === "away";
+  const homeWon = game.result === "home" || (isEnded && game.homeScore > game.awayScore);
+  const awayWon = game.result === "away" || (isEnded && game.awayScore > game.homeScore);
   const pickHome = game.pick === "home";
   const pickAway = game.pick === "away";
-  const correct = game.pick && game.pick === game.result;
-  const wrong   = game.pick && game.result && game.pick !== game.result;
+  
+  // result 필드가 없을 수 있으므로 점수 기반으로 계산
+  const actualResult = game.result || (game.homeScore > game.awayScore ? "home" : game.awayScore > game.homeScore ? "away" : "draw");
+  const correct = game.pick && game.pick === actualResult;
+  const wrong   = game.pick && actualResult && game.pick !== actualResult;
 
   const animH = animPick === `${game.id}-home`;
   const animA = animPick === `${game.id}-away`;
+
+  const isDraw = isEnded && game.homeScore === game.awayScore;
 
   return (
     <div style={{
@@ -603,7 +707,7 @@ function GameCard({ game, onPick, animPick }) {
         {/* 원정팀 */}
         <TeamButton
           team={away} side="away" game={game}
-          picked={pickAway} won={awayWon} isEnded={isEnded}
+          picked={pickAway} won={awayWon} isDraw={isDraw} isEnded={isEnded}
           anim={animA} onPick={onPick}
           odds={game.awayOdds}
         />
@@ -630,7 +734,7 @@ function GameCard({ game, onPick, animPick }) {
         {/* 홈팀 */}
         <TeamButton
           team={home} side="home" game={game}
-          picked={pickHome} won={homeWon} isEnded={isEnded}
+          picked={pickHome} won={homeWon} isDraw={isDraw} isEnded={isEnded}
           anim={animH} onPick={onPick}
           odds={game.homeOdds}
           isHome
@@ -640,7 +744,7 @@ function GameCard({ game, onPick, animPick }) {
   );
 }
 
-function TeamButton({ team, side, game, picked, won, isEnded, anim, onPick, odds, isHome }) {
+function TeamButton({ team, side, game, picked, won, isDraw, isEnded, anim, onPick, odds, isHome }) {
   const active = picked;
   const correct = picked && won;
   const wrong   = picked && isEnded && !won;
@@ -689,10 +793,13 @@ function TeamButton({ team, side, game, picked, won, isEnded, anim, onPick, odds
           {active ? "✓ 선택됨" : `배율 ${odds}`}
         </div>
       )}
-      {isEnded && won && (
+      {isEnded && isDraw && (
+        <div style={{ fontSize: 10, color: C.sub, fontWeight: 600 }}>무승부</div>
+      )}
+      {isEnded && !isDraw && won && (
         <div style={{ fontSize: 10, color: "#0284C7", fontWeight: 600 }}>승리</div>
       )}
-      {isEnded && !won && (
+      {isEnded && !isDraw && !won && (
         <div style={{ fontSize: 10, color: C.sub }}>패배</div>
       )}
     </button>
