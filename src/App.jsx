@@ -21,37 +21,39 @@ const fmt = (h, m) => `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}
 const INITIAL_GAMES = [
   {
     id: 1, home: "KIA", away: "NC",
-    time: fmt(14, 0), stadium: "광주-기아 챔피언스 필드",
-    status: "live", pick: null, result: null,
-    homeOdds: 1.65, awayOdds: 2.10, homeScore: 5, awayScore: 3,
+    time: fmt(18, 30), stadium: "광주-기아 챔피언스 필드",
+    status: "upcoming", pick: null, result: null,
+    homeOdds: 1.65, awayOdds: 2.10, homeScore: 0, awayScore: 0,
   },
   {
     id: 2, home: "DB", away: "SSG",
-    time: fmt(14, 0), stadium: "잠실야구장",
-    status: "live", pick: null, result: null,
-    homeOdds: 1.80, awayOdds: 1.90, homeScore: 2, awayScore: 2,
+    time: fmt(18, 30), stadium: "잠실야구장",
+    status: "upcoming", pick: null, result: null,
+    homeOdds: 1.80, awayOdds: 1.90, homeScore: 0, awayScore: 0,
   },
   {
     id: 3, home: "KIW", away: "LG",
-    time: fmt(14, 0), stadium: "고척 스카이돔",
-    status: "live", pick: null, result: null,
-    homeOdds: 1.70, awayOdds: 2.00, homeScore: 0, awayScore: 4,
+    time: fmt(18, 30), stadium: "고척 스카이돔",
+    status: "upcoming", pick: null, result: null,
+    homeOdds: 1.70, awayOdds: 2.00, homeScore: 0, awayScore: 0,
   },
   {
     id: 4, home: "SS", away: "HH",
-    time: fmt(14, 0), stadium: "대구 삼성 라이온즈 파크",
-    status: "ended", pick: "home", result: "home",
-    homeOdds: 1.55, awayOdds: 2.30, homeScore: 7, awayScore: 6,
+    time: fmt(18, 30), stadium: "대구 삼성 라이온즈 파크",
+    status: "upcoming", pick: null, result: null,
+    homeOdds: 1.55, awayOdds: 2.30, homeScore: 0, awayScore: 0,
   },
   {
     id: 5, home: "KT", away: "LOT",
-    time: fmt(14, 0), stadium: "수원 KT 위즈 파크",
-    status: "ended", pick: "away", result: "away",
-    homeOdds: 1.60, awayOdds: 2.20, homeScore: 1, awayScore: 5,
+    time: fmt(18, 30), stadium: "수원 KT 위즈 파크",
+    status: "upcoming", pick: null, result: null,
+    homeOdds: 1.60, awayOdds: 2.20, homeScore: 0, awayScore: 0,
   },
 ];
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api/game-schedule/date";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const GAME_SCHEDULE_API_URL = `${API_BASE_URL}/game-schedule/date`;
+const TEAM_RECORD_API_URL = `${API_BASE_URL}/team-record`;
 
 // kbo-scraper의 전체 팀 이름을 홈런픽의 고유 ID로 변환합니다.
 const getTeamId = (fullName) => {
@@ -70,26 +72,11 @@ const getTeamId = (fullName) => {
 };
 
 // ── 히스토리 데이터 ───────────────────────────────────────
-const HISTORY = [
-  { date: "5/9 (금)", home: "KIA", away: "SSG", pick: "home", result: "home", win: true },
-  { date: "5/9 (금)", home: "LG",  away: "KT",  pick: "home", result: "away", win: false },
-  { date: "5/9 (금)", home: "SS",  away: "NC",  pick: "home", result: "home", win: true },
-  { date: "5/8 (목)", home: "KIW", away: "LOT", pick: "away", result: "away", win: true },
-  { date: "5/8 (목)", home: "HH",  away: "DB",  pick: "home", result: "home", win: true },
-  { date: "5/7 (수)", home: "KT",  away: "SS",  pick: "away", result: "home", win: false },
-  { date: "5/7 (수)", home: "NC",  away: "LG",  pick: "away", result: "away", win: true },
-];
+// 실제 운영에서는 로컬스토리지나 DB에서 불러옵니다.
+const HISTORY = [];
 
-// ── 랭킹 데이터 ───────────────────────────────────────────
-const RANKING = [
-  { rank: 1, name: "야구의신",   correct: 47, total: 58, streak: 7  },
-  { rank: 2, name: "KIA팬클럽",  correct: 44, total: 56, streak: 4  },
-  { rank: 3, name: "삼성맨",     correct: 41, total: 55, streak: 3  },
-  { rank: 4, name: "나",         correct: 12, total: 17, streak: 4, isMe: true },
-  { rank: 5, name: "직구투수",   correct: 11, total: 16, streak: 2  },
-  { rank: 6, name: "홈런왕",     correct: 10, total: 17, streak: 0  },
-  { rank: 7, name: "야구초보",   correct:  9, total: 15, streak: 1  },
-];
+// 랭킹 데이터는 나중에 백엔드에서 가져오도록 변경 (현재는 비워둠)
+const INITIAL_RANKING = [];
 
 // ── 유틸 ─────────────────────────────────────────────────
 const pct = (a, b) => b === 0 ? 0 : Math.round((a / b) * 100);
@@ -114,11 +101,71 @@ const C = {
   green:  "#22C55E",
 };
 
+// ── KBO 정규시즌 시간 규정 ───────────────────────────────
+const getFirstGameStartTime = (d = new Date()) => {
+  const month = d.getMonth() + 1;
+  const date = d.getDate();
+  const day = d.getDay(); // 0: Sun, 1: Mon, ..., 6: Sat
+
+  if (month === 5 && date === 1) return { h: 17, m: 0 }; // 노동절
+
+  if (day >= 1 && day <= 5) return { h: 18, m: 30 }; // 평일
+
+  if (month === 6) return { h: 17, m: 0 }; // 6월 주말
+  if (month === 7 || month === 8) return { h: 18, m: 0 }; // 7-8월 주말
+
+  // 3~5월, 9~10월 주말
+  if (day === 6) return { h: 17, m: 0 }; // 토
+  if (day === 0) return { h: 14, m: 0 }; // 일
+
+  return { h: 18, m: 30 };
+};
+
+const isPredictionLocked = (gameTimeStr) => {
+  if (!gameTimeStr) return false;
+  const [h, m] = gameTimeStr.split(":").map(Number);
+  const now = new Date();
+  const gameTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0);
+  const lockTime = new Date(gameTime.getTime() - 30 * 60 * 1000); // 30분 전
+  return now >= lockTime;
+};
+
 export default function App() {
   const [tab, setTab] = useState("home");
   const [games, setGames] = useState([]);
   const [toast, setToast] = useState(null);
   const [animPick, setAnimPick] = useState(null);
+  const [isOffTime, setIsOffTime] = useState(false);
+  const [userRankings, setUserRankings] = useState(INITIAL_RANKING);
+  const [teamRecords, setTeamRecords] = useState([
+    { rank: 1, teamName: "KT", wins: 12, draws: 0, losses: 5, winRate: 0.706, recent10Games: "8승 2패" },
+    { rank: 2, teamName: "LG", wins: 11, draws: 1, losses: 6, winRate: 0.647, recent10Games: "7승 3패" },
+    { rank: 3, teamName: "삼성", wins: 10, draws: 0, losses: 7, winRate: 0.588, recent10Games: "6승 4패" },
+    { rank: 4, teamName: "SSG", wins: 10, draws: 0, losses: 8, winRate: 0.556, recent10Games: "5승 5패" },
+    { rank: 5, teamName: "두산", wins: 9, draws: 1, losses: 8, winRate: 0.529, recent10Games: "5승 5패" },
+    { rank: 6, teamName: "KIA", wins: 8, draws: 0, losses: 9, winRate: 0.471, recent10Games: "4승 6패" },
+    { rank: 7, teamName: "한화", wins: 7, draws: 0, losses: 10, winRate: 0.412, recent10Games: "4승 6패" },
+    { rank: 8, teamName: "롯데", wins: 7, draws: 0, losses: 11, winRate: 0.389, recent10Games: "3승 7패" },
+    { rank: 9, teamName: "NC", wins: 6, draws: 0, losses: 12, winRate: 0.333, recent10Games: "3승 7패" },
+    { rank: 10, teamName: "키움", wins: 5, draws: 0, losses: 13, winRate: 0.278, recent10Games: "2승 8패" },
+  ]);
+
+  const [yesterdayGames, setYesterdayGames] = useState([]);
+
+  // 시간 체크 (오전 12시 ~ 경기 시작 2시간 전)
+  useEffect(() => {
+    const checkTime = () => {
+      const now = new Date();
+      const firstGame = getFirstGameStartTime(now);
+      const firstGameDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), firstGame.h, firstGame.m, 0);
+      const wakeupTime = new Date(firstGameDate.getTime() - 1 * 60 * 60 * 1000); // 1시간 전
+      
+      setIsOffTime(now.getHours() >= 0 && now < wakeupTime);
+    };
+    checkTime();
+    const timer = setInterval(checkTime, 30000); // 30초마다 체크
+    return () => clearInterval(timer);
+  }, []);
 
   // 백엔드 API 연동: 실시간 데이터 가져오기
   useEffect(() => {
@@ -129,7 +176,7 @@ export default function App() {
           year: 'numeric', month: '2-digit', day: '2-digit'
         }).replace(/\. /g, '-').replace('.', '');
         
-        const res = await fetch(`${API_URL}/${todayStr}`);
+        const res = await fetch(`${GAME_SCHEDULE_API_URL}/${todayStr}`);
         const responseData = await res.json();
         
         if (responseData.code === "OK" && responseData.data) {
@@ -191,6 +238,62 @@ export default function App() {
 
     fetchGames(); // 최초 즉시 실행
     const timer = setInterval(fetchGames, 5000); // 5초마다 백엔드 폴링(실시간 갱신)
+
+    const fetchTeamRecords = async () => {
+      try {
+        const year = new Date().getFullYear();
+        const res = await fetch(`${TEAM_RECORD_API_URL}/${year}`);
+        const data = await res.json();
+        if (data) setTeamRecords(data);
+      } catch (e) {
+        console.error("팀 순위 데이터를 가져오지 못했습니다.", e);
+      }
+    };
+    fetchTeamRecords();
+
+    const fetchYesterday = async () => {
+      try {
+        const yesterday = new Date(Date.now() - 86400000);
+        const yStr = yesterday.toLocaleDateString('ko-KR', {
+          year: 'numeric', month: '2-digit', day: '2-digit'
+        }).replace(/\. /g, '-').replace('.', '');
+        const res = await fetch(`${GAME_SCHEDULE_API_URL}/${yStr}`, { signal: AbortSignal.timeout(3000) });
+        const responseData = await res.json();
+        if (responseData.code === "OK" && responseData.data && responseData.data.length > 0) {
+          const mappedData = responseData.data.map(item => ({
+            id: item.gameKey,
+            home: getTeamId(item.homeTeam),
+            away: getTeamId(item.awayTeam),
+            time: item.time ? item.time.substring(0, 5) : "",
+            stadium: item.stadium,
+            status: "ended",
+            homeScore: item.homeScore || 0,
+            awayScore: item.awayScore || 0,
+          }));
+          setYesterdayGames(mappedData);
+        } else {
+          // 백엔드 없을 때 5/10 경기 결과 fallback
+          setYesterdayGames([
+            { id: "y1", home: "KIA", away: "NC",  status: "ended", homeScore: 5, awayScore: 3, time: "18:30", stadium: "광주" },
+            { id: "y2", home: "DB",  away: "SSG", status: "ended", homeScore: 2, awayScore: 4, time: "18:30", stadium: "잠실" },
+            { id: "y3", home: "KIW", away: "LG",  status: "ended", homeScore: 1, awayScore: 7, time: "18:30", stadium: "고척" },
+            { id: "y4", home: "SS",  away: "HH",  status: "ended", homeScore: 6, awayScore: 3, time: "18:30", stadium: "대구" },
+            { id: "y5", home: "KT",  away: "LOT", status: "ended", homeScore: 8, awayScore: 2, time: "18:30", stadium: "수원" },
+          ]);
+        }
+      } catch (e) {
+        console.error("어제 경기를 가져오지 못했습니다. 기본 데이터를 표시합니다.", e);
+        setYesterdayGames([
+          { id: "y1", home: "KIA", away: "NC",  status: "ended", homeScore: 5, awayScore: 3, time: "18:30", stadium: "광주" },
+          { id: "y2", home: "DB",  away: "SSG", status: "ended", homeScore: 2, awayScore: 4, time: "18:30", stadium: "잠실" },
+          { id: "y3", home: "KIW", away: "LG",  status: "ended", homeScore: 1, awayScore: 7, time: "18:30", stadium: "고척" },
+          { id: "y4", home: "SS",  away: "HH",  status: "ended", homeScore: 6, awayScore: 3, time: "18:30", stadium: "대구" },
+          { id: "y5", home: "KT",  away: "LOT", status: "ended", homeScore: 8, awayScore: 2, time: "18:30", stadium: "수원" },
+        ]);
+      }
+    };
+    fetchYesterday();
+
     return () => clearInterval(timer);
   }, []);
 
@@ -200,6 +303,14 @@ export default function App() {
   }, []);
 
   const handlePick = useCallback((gameId, side) => {
+    const g = games.find(g => g.id === gameId);
+    if (!g) return;
+
+    if (isPredictionLocked(g.time)) {
+      showToast("경기 시작 30분 전 마감되었습니다.", "error");
+      return;
+    }
+
     setGames(prev => prev.map(g => {
       if (g.id !== gameId) return g;
       if (g.pick === side) return { ...g, pick: null };
@@ -207,18 +318,17 @@ export default function App() {
     }));
     setAnimPick(`${gameId}-${side}`);
     setTimeout(() => setAnimPick(null), 500);
-    const g = games.find(g => g.id === gameId);
-    if (!g) return;
     const t = TEAMS[side === "home" ? g.home : g.away];
     showToast(`${t.short} 승리 예측!`);
   }, [games, showToast]);
 
   // stats
+  // 실제 픽망 운영: pick은 사용자가 직접 선택한 종료 경기만 카운트
   const pickedGames = games.filter(g => g.pick && g.status === "ended");
   const wins = pickedGames.filter(g => g.pick === g.result).length;
-  const total = pickedGames.length + HISTORY.filter(h => h.win !== undefined).length;
-  const totalWins = wins + HISTORY.filter(h => h.win).length;
-  const streak = 4; // from history
+  const total = pickedGames.length;
+  const totalWins = wins;
+  const streak = 0; // 향후 DB/로컬스토리지 기반 연속 적중 계산
 
   return (
     <div style={{
@@ -231,10 +341,13 @@ export default function App() {
       <Header />
 
       {/* 탭 컨텐츠 */}
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72 }}>
-        {tab === "home"    && <HomeTab games={games} onPick={handlePick} animPick={animPick} />}
-        {tab === "stats"   && <StatsTab totalWins={totalWins} total={total} streak={streak} />}
-        {tab === "ranking" && <RankingTab />}
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72, position: "relative" }}>
+        {tab === "home" && (
+          isOffTime ? <OffTimePopup yesterdayGames={yesterdayGames} /> : <HomeTab games={games} yesterdayGames={yesterdayGames} onPick={handlePick} animPick={animPick} />
+        )}
+        {tab === "league"  && <LeagueTab records={teamRecords} />}
+        {tab === "stats"   && <StatsTab totalWins={totalWins} total={total} streak={streak} pickedGames={pickedGames} />}
+        {tab === "ranking" && <RankingTab rankings={userRankings} />}
       </div>
 
       {/* 하단 탭 바 */}
@@ -242,6 +355,51 @@ export default function App() {
 
       {/* 토스트 */}
       {toast && <Toast msg={toast.msg} type={toast.type} />}
+    </div>
+  );
+}
+
+// ── 오프타임 팝업 ──────────────────────────────────────────
+function OffTimePopup({ yesterdayGames }) {
+  return (
+    <div style={{ padding: "60px 24px", textAlign: "center", minHeight: "100%", background: C.bg }}>
+      <div style={{
+        background: "#fff", padding: "44px 28px", borderRadius: 28,
+        boxShadow: "0 25px 50px rgba(0,0,0,0.05)",
+        margin: "0 auto", maxWidth: 340,
+        animation: "slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+      }}>
+        <div style={{ fontSize: 64, marginBottom: 24 }}>⏰</div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 14, letterSpacing: -0.5 }}>
+          지금은 경기 시간이 아니에요
+        </h2>
+        <p style={{ fontSize: 14, color: C.sub, lineHeight: 1.7, marginBottom: 0, wordBreak: "keep-all" }}>
+          정확한 예측을 위해 경기 시작<br/>
+          <span style={{ color: C.navy, fontWeight: 800, borderBottom: `2px solid ${C.red}` }}>1시간 전</span>에 다시 찾아올게요!
+        </p>
+      </div>
+
+      <div style={{ marginTop: 40, textAlign: "left", width: "100%" }}>
+        <div style={{ padding: "0 16px", marginBottom: 12, fontSize: 16, fontWeight: 800, color: C.text }}>
+          ✅ 이전 경기 결과
+        </div>
+        <div style={{ padding: "0 16px" }}>
+          {yesterdayGames && yesterdayGames.length > 0 ? (
+            yesterdayGames.map(g => <GameCard key={g.id} game={g} />)
+          ) : (
+            <div style={{ background: "#fff", padding: "20px", borderRadius: 16, textAlign: "center", color: C.sub, fontSize: 13, border: `1px solid ${C.border}` }}>
+              이전 경기 결과가 없습니다.
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(40px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -277,8 +435,73 @@ function Header() {
   );
 }
 
+// ── 리그 순위 탭 ──────────────────────────────────────────
+function LeagueTab({ records }) {
+  if (!records || records.length === 0) {
+    return <div style={{ padding: 40, textAlign: "center", color: C.sub }}>순위 데이터를 불러오는 중...</div>;
+  }
+
+  return (
+    <div style={{ padding: "16px 16px 8px" }}>
+      <div style={{
+        background: C.card, borderRadius: 16, overflow: "hidden",
+        border: `1px solid ${C.border}`, boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+      }}>
+        <div style={{
+          padding: "16px", background: C.navy, color: "#fff",
+          display: "flex", justifyContent: "space-between", alignItems: "center"
+        }}>
+          <span style={{ fontWeight: 800, fontSize: 15 }}>2026 KBO 리그 순위</span>
+          <span style={{ fontSize: 11, opacity: 0.8 }}>실시간 업데이트</span>
+        </div>
+        
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: "#F9FAFB", borderBottom: `1px solid ${C.border}` }}>
+              <th style={{ padding: "12px 8px", textAlign: "center", width: 40, color: C.sub }}>순위</th>
+              <th style={{ padding: "12px 8px", textAlign: "left", color: C.sub }}>팀명</th>
+              <th style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>승</th>
+              <th style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>무</th>
+              <th style={{ padding: "12px 4px", textAlign: "center", color: C.sub }}>패</th>
+              <th style={{ padding: "12px 8px", textAlign: "center", color: C.sub }}>승률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((r, idx) => {
+              const teamId = getTeamId(r.teamName);
+              const team = TEAMS[teamId];
+              return (
+                <tr key={r.teamName} style={{ borderBottom: idx < records.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <td style={{ padding: "14px 8px", textAlign: "center", fontWeight: idx < 3 ? 800 : 500, color: idx < 3 ? C.navy : C.text }}>
+                    {r.rank}
+                  </td>
+                  <td style={{ padding: "14px 8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <img src={team?.logo} style={{ width: 24, height: 24, objectFit: "contain" }} alt="" />
+                      <span style={{ fontWeight: 600 }}>{team?.short || r.teamName}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: "14px 4px", textAlign: "center", fontWeight: 700 }}>{r.wins}</td>
+                  <td style={{ padding: "14px 4px", textAlign: "center", color: C.sub }}>{r.draws}</td>
+                  <td style={{ padding: "14px 4px", textAlign: "center" }}>{r.losses}</td>
+                  <td style={{ padding: "14px 8px", textAlign: "center", fontWeight: 600, color: C.navy }}>
+                    {r.winRate.toFixed(3).substring(1)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: C.sub, textAlign: "center" }}>
+        * KBO 공식 기록실 데이터를 바탕으로 제공됩니다.
+      </div>
+    </div>
+  );
+}
+
 // ── 홈 탭 ─────────────────────────────────────────────────
-function HomeTab({ games, onPick, animPick }) {
+function HomeTab({ games, yesterdayGames, onPick, animPick }) {
   const live = games.filter(g => g.status === "live");
   const upcoming = games.filter(g => g.status === "upcoming");
   const ended = games.filter(g => g.status === "ended");
@@ -318,16 +541,27 @@ function HomeTab({ games, onPick, animPick }) {
 
       {/* 예측 가능 */}
       <Section title={`⚾ 오늘 경기 (${upcoming.length})`}>
-        {upcoming.length === 0
-          ? <EmptyCard msg="예측 가능한 경기가 없어요" />
+        {upcoming.length === 0 && live.length === 0
+          ? <EmptyCard msg="오늘 예정된 경기가 없어요" />
           : upcoming.map(g => <GameCard key={g.id} game={g} onPick={onPick} animPick={animPick} />)
         }
       </Section>
 
       {/* 종료된 경기 */}
-      <Section title={`✅ 종료된 경기 (${ended.length})`}>
-        {ended.map(g => <GameCard key={g.id} game={g} onPick={onPick} animPick={animPick} />)}
-      </Section>
+      {ended.length > 0 && (
+        <Section title={`✅ 오늘 종료된 경기 (${ended.length})`}>
+          {ended.map(g => <GameCard key={g.id} game={g} onPick={onPick} animPick={animPick} />)}
+        </Section>
+      )}
+
+      {/* 어제 경기 결과 */}
+      {upcoming.length > 0 && live.length === 0 && ended.length === 0 && yesterdayGames && yesterdayGames.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <Section title="✅ 이전 경기 결과">
+            {yesterdayGames.map(g => <GameCard key={g.id} game={g} />)}
+          </Section>
+        </div>
+      )}
     </div>
   );
 }
@@ -501,7 +735,21 @@ function EmptyCard({ msg }) {
 }
 
 // ── 통계 탭 ───────────────────────────────────────────────
-function StatsTab({ totalWins, total, streak }) {
+function StatsTab({ totalWins, total, streak, pickedGames }) {
+  if (total === 0 && (!pickedGames || pickedGames.length === 0)) {
+    return (
+      <div style={{ padding: "80px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 64, marginBottom: 20 }}>📊</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 8 }}>
+          아직 예측 기록이 없습니다
+        </div>
+        <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.6 }}>
+          오늘의 경기를 예측하고<br/>첫 번째 적중 기록을 만들어보세요!
+        </div>
+      </div>
+    );
+  }
+
   const rate = pct(totalWins, total);
 
   const getRateColor = (r) =>
@@ -606,47 +854,67 @@ function StatsTab({ totalWins, total, streak }) {
 }
 
 // ── 랭킹 탭 ───────────────────────────────────────────────
-function RankingTab() {
+// ── 유저 랭킹 탭 ──────────────────────────────────────────
+function RankingTab({ rankings }) {
   const medalColor = (r) =>
     r === 1 ? C.gold : r === 2 ? C.silver : r === 3 ? C.bronze : C.sub;
+
+  if (!rankings || rankings.length === 0) {
+    return (
+      <div style={{ 
+        padding: "80px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center"
+      }}>
+        <div style={{ fontSize: 64, marginBottom: 20 }}>🌵</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 8 }}>
+          아직 승부예측을 한 사람이 없습니다
+        </div>
+        <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.6 }}>
+          오늘 경기의 첫 번째 주인공이 되어보세요!<br/>
+          승리를 예측하고 랭킹을 올려보세요.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "16px 16px 8px" }}>
       {/* 상위 3인 포디움 */}
-      <div style={{
-        background: C.navy, borderRadius: 18, padding: "20px 16px 16px",
-        marginBottom: 16,
-      }}>
-        <div style={{ textAlign: "center", color: "#8899BB", fontSize: 11, marginBottom: 16 }}>
-          🏆 이번 시즌 랭킹
-        </div>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8 }}>
-          {[RANKING[1], RANKING[0], RANKING[2]].map((r, idx) => {
-            const isFirst = idx === 1;
-            return (
-              <div key={r.rank} style={{ textAlign: "center", flex: 1 }}>
-                <div style={{ fontSize: isFirst ? 28 : 22, marginBottom: 4 }}>
-                  {r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉"}
+      {rankings.length >= 3 && (
+        <div style={{
+          background: C.navy, borderRadius: 18, padding: "20px 16px 16px",
+          marginBottom: 16,
+        }}>
+          <div style={{ textAlign: "center", color: "#8899BB", fontSize: 11, marginBottom: 16 }}>
+            🏆 이번 시즌 랭킹
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8 }}>
+            {[rankings[1], rankings[0], rankings[2]].map((r, idx) => {
+              const isFirst = idx === 1;
+              return (
+                <div key={r.rank} style={{ textAlign: "center", flex: 1 }}>
+                  <div style={{ fontSize: isFirst ? 28 : 22, marginBottom: 4 }}>
+                    {r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : "🥉"}
+                  </div>
+                  <div style={{
+                    fontSize: 12, fontWeight: 700, color: "#fff",
+                    marginBottom: 2,
+                  }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: "#8899BB" }}>
+                    {pct(r.correct, r.total)}%
+                  </div>
+                  <div style={{
+                    marginTop: 8,
+                    height: isFirst ? 52 : idx === 0 ? 36 : 28,
+                    background: `${medalColor(r.rank)}33`,
+                    borderRadius: "6px 6px 0 0",
+                    border: `1.5px solid ${medalColor(r.rank)}55`,
+                  }} />
                 </div>
-                <div style={{
-                  fontSize: 12, fontWeight: 700, color: "#fff",
-                  marginBottom: 2,
-                }}>{r.name}</div>
-                <div style={{ fontSize: 11, color: "#8899BB" }}>
-                  {pct(r.correct, r.total)}%
-                </div>
-                <div style={{
-                  marginTop: 8,
-                  height: isFirst ? 52 : idx === 0 ? 36 : 28,
-                  background: `${medalColor(r.rank)}33`,
-                  borderRadius: "6px 6px 0 0",
-                  border: `1.5px solid ${medalColor(r.rank)}55`,
-                }} />
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 전체 랭킹 리스트 */}
       <div style={{
@@ -661,10 +929,10 @@ function RankingTab() {
           <span>순위 · 닉네임</span>
           <span>적중률 (적중/총)</span>
         </div>
-        {RANKING.map((r, i) => (
+        {rankings.map((r, i) => (
           <div key={r.rank} style={{
             padding: "13px 16px",
-            borderBottom: i < RANKING.length - 1 ? `1px solid ${C.border}` : "none",
+            borderBottom: i < rankings.length - 1 ? `1px solid ${C.border}` : "none",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             background: r.isMe ? "#EFF6FF" : "transparent",
           }}>
@@ -717,9 +985,10 @@ function RankingTab() {
 // ── 하단 탭 바 ────────────────────────────────────────────
 function BottomNav({ tab, setTab }) {
   const tabs = [
-    { id: "home",    label: "홈",    icon: "⚾" },
+    { id: "home",    label: "홈",    icon: "🏠" },
+    { id: "league",  label: "KBO 순위",  icon: "🏆" },
     { id: "stats",   label: "내 기록", icon: "📊" },
-    { id: "ranking", label: "랭킹",  icon: "🏆" },
+    { id: "ranking", label: "유저",  icon: "👤" },
   ];
 
   return (
